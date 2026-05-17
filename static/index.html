@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Smashery</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@14/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <style>
   /* ---- Theme ---- */
   :root {
@@ -247,6 +249,7 @@
     background: var(--bg);
     border: 1px solid var(--border);
     align-self: flex-start;
+    white-space: normal;
   }
   .msg.error {
     background: #fcdede;
@@ -255,6 +258,25 @@
     align-self: flex-start;
   }
   .msg.pending { color: var(--muted); font-style: italic; }
+
+  /* ---- Markdown rendered inside agent message bubbles ---- */
+  .msg.assistant p { margin: 0 0 8px; }
+  .msg.assistant p:last-child { margin-bottom: 0; }
+  .msg.assistant ul,
+  .msg.assistant ol { margin: 4px 0 8px; padding-left: 20px; }
+  .msg.assistant ul:last-child,
+  .msg.assistant ol:last-child { margin-bottom: 0; }
+  .msg.assistant li { margin: 2px 0; }
+  .msg.assistant strong { font-weight: 700; }
+  .msg.assistant em { font-style: italic; }
+  .msg.assistant code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
   .composer {
     flex-shrink: 0;
     display: flex;
@@ -593,7 +615,9 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
       conversationHistory.push({ role: "assistant", content: data.answer });
-      pending.textContent = data.answer;
+      // Agent responses are markdown — render them, sanitized. User messages
+      // and errors stay as textContent so user text is never parsed as markup.
+      pending.innerHTML = DOMPurify.sanitize(marked.parse(data.answer));
       pending.className = "msg assistant";
     } catch (err) {
       // Drop the failed user turn — history holds only completed exchanges.
