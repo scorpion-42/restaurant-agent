@@ -31,6 +31,8 @@ Some questions to try:
 
 **Try a follow-up:** ask `Which burgers are vegetarian?`, then `What about for kids?` — the agent keeps the context from the first question.
 
+**Tip:** click any menu item card to copy its name to your clipboard, then paste it into the chat to ask about it.
+
 ## Architecture
 
 ```

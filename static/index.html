@@ -132,6 +132,7 @@
     overflow: hidden;
     box-shadow: var(--shadow);
     transition: transform 0.12s ease, box-shadow 0.12s ease;
+    cursor: pointer;
   }
   .card:hover {
     transform: translateY(-3px);
@@ -139,6 +140,7 @@
   }
   /* Image slot: stable 4:3 container — holds an emoji now, an <img> later */
   .card-img {
+    position: relative;
     width: 100%;
     aspect-ratio: 4 / 3;
     display: flex;
@@ -149,10 +151,13 @@
     background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
-  .card-img img {
+  .item-image {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
     display: block;
   }
   .card-body {
@@ -278,6 +283,31 @@
   .composer button:hover { background: var(--accent-dark); }
   .composer button:disabled { opacity: 0.5; cursor: default; }
 
+  /* ---- Toast (click-to-copy feedback) ---- */
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    z-index: 1000;
+    max-width: 400px;
+    padding: 16px 22px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+  .toast.visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
   /* ---- Tablet: 2-column grid ---- */
   @media (max-width: 1200px) {
     .grid { grid-template-columns: repeat(2, 1fr); }
@@ -362,59 +392,84 @@
 <script>
   // ---- Menu data: all 26 items, sourced from SYSTEM_PROMPT in app/main.py ----
   const MENU = [
-    { name: "The Classic Smash", category: "Signature Burgers", price: "$11.99", emoji: "🍔",
+    { name: "The Classic Smash", category: "Signature Burgers", price: "$11.99", emoji: "🍔", image: "images/the-classic-smash.jpg",
       description: "Two smashed beef patties, American cheese, lettuce, tomato, onion, pickles, signature sauce, brioche bun." },
-    { name: "Bacon BBQ Stack", category: "Signature Burgers", price: "$14.99", emoji: "🍔",
+    { name: "Bacon BBQ Stack", category: "Signature Burgers", price: "$14.99", emoji: "🍔", image: "images/bacon-bbq-stack.jpg",
       description: "Double beef patties, crispy bacon, sharp cheddar, fried onion rings, house BBQ sauce, brioche bun." },
-    { name: "The Spicy Diablo", category: "Signature Burgers", price: "$13.99", emoji: "🍔",
+    { name: "The Spicy Diablo", category: "Signature Burgers", price: "$13.99", emoji: "🍔", image: "images/the-spicy-diablo.jpg",
       description: "Beef patty, pepper jack, fresh jalapeños, sriracha aioli, lettuce, jalapeño-cheddar bun. Spicy." },
-    { name: "Mushroom Swiss", category: "Signature Burgers", price: "$13.49", emoji: "🍔",
+    { name: "Mushroom Swiss", category: "Signature Burgers", price: "$13.49", emoji: "🍔", image: "images/mushroom-swiss.jpg",
       description: "Beef patty, sautéed cremini mushrooms, Swiss, garlic aioli, arugula, brioche bun." },
-    { name: "Garden Bliss (vegetarian)", category: "Signature Burgers", price: "$12.99", emoji: "🌱",
+    { name: "Garden Bliss (vegetarian)", category: "Signature Burgers", price: "$12.99", emoji: "🌱", image: "images/garden-bliss.jpg",
       description: "House black bean and quinoa patty, avocado, lettuce, tomato, chipotle mayo, whole wheat bun." },
-    { name: "Beyond Smash (vegan)", category: "Signature Burgers", price: "$14.49", emoji: "🌿",
+    { name: "Beyond Smash (vegan)", category: "Signature Burgers", price: "$14.49", emoji: "🌿", image: "images/beyond.jpg",
       description: "Beyond Meat patty, vegan cheddar, lettuce, tomato, onion, vegan mayo, vegan bun." },
-    { name: "Crispy Chicken Deluxe", category: "Chicken", price: "$12.99", emoji: "🍗",
+    { name: "Crispy Chicken Deluxe", category: "Chicken", price: "$12.99", emoji: "🍗", image: "images/crispy-chicken-deluxe.jpg",
       description: "Buttermilk-fried chicken thigh, lettuce, pickles, honey mustard, brioche bun." },
-    { name: "Nashville Hot Chicken", category: "Chicken", price: "$13.99", emoji: "🍗",
+    { name: "Nashville Hot Chicken", category: "Chicken", price: "$13.99", emoji: "🍗", image: "images/nashville-hot-chicken.jpg",
       description: "Spicy Nashville-style fried chicken, slaw, pickles, comeback sauce, brioche bun. Very spicy." },
-    { name: "Lil' Smash", category: "Kids Menu", price: "$7.99", emoji: "🍔",
+    { name: "Lil' Smash", category: "Kids Menu", price: "$7.99", emoji: "🍔", image: "images/lil-smash.jpg",
       description: "Single patty, American cheese, ketchup, small bun." },
-    { name: "Chicken Tenders", category: "Kids Menu", price: "$7.99", emoji: "🍗",
+    { name: "Chicken Tenders", category: "Kids Menu", price: "$7.99", emoji: "🍗", image: "images/chicken-tenders.jpg",
       description: "Three breaded chicken tenders." },
-    { name: "Hand-cut Fries", category: "Sides", price: "$4.49 (small) / $6.49 (large)", emoji: "🍟",
+    { name: "Hand-cut Fries", category: "Sides", price: "$4.49 (small) / $6.49 (large)", emoji: "🍟", image: "images/hand-cut-fries.jpg",
       description: "" },
-    { name: "Sweet Potato Fries", category: "Sides", price: "$5.49 (small) / $7.49 (large)", emoji: "🍠",
+    { name: "Sweet Potato Fries", category: "Sides", price: "$5.49 (small) / $7.49 (large)", emoji: "🍠", image: "images/sweet-potato-fries.jpg",
       description: "" },
-    { name: "Truffle Parmesan Fries", category: "Sides", price: "$7.99", emoji: "🍟",
+    { name: "Truffle Parmesan Fries", category: "Sides", price: "$7.99", emoji: "🍟", image: "images/truffle-parmesan-fries.jpg",
       description: "" },
-    { name: "Onion Rings", category: "Sides", price: "$5.99", emoji: "🧅",
+    { name: "Onion Rings", category: "Sides", price: "$5.99", emoji: "🧅", image: "images/onion-rings.jpg",
       description: "" },
-    { name: "Mac & Cheese", category: "Sides", price: "$6.49", emoji: "🧀",
+    { name: "Mac & Cheese", category: "Sides", price: "$6.49", emoji: "🧀", image: "images/mac-and-cheese.jpg",
       description: "House blend of cheddar and gruyère." },
-    { name: "Side Salad", category: "Sides", price: "$5.49", emoji: "🥗",
+    { name: "Side Salad", category: "Sides", price: "$5.49", emoji: "🥗", image: "images/side-salad.jpg",
       description: "Mixed greens, tomato, cucumber. Choice of ranch, balsamic vinaigrette, or blue cheese dressing." },
-    { name: "Vanilla / Chocolate / Strawberry Shake", category: "Shakes", price: "$6.49", emoji: "🥤",
+    { name: "Vanilla / Chocolate / Strawberry Shake", category: "Shakes", price: "$6.49", emoji: "🥤", image: "images/vanilla-chocolate-strawberry-shake.jpg",
       description: "Made with local dairy." },
-    { name: "Salted Caramel Shake", category: "Shakes", price: "$7.49", emoji: "🥤",
+    { name: "Salted Caramel Shake", category: "Shakes", price: "$7.49", emoji: "🥤", image: "images/salted-caramel-shake.jpg",
       description: "Made with local dairy." },
-    { name: "Oreo Cookie Shake", category: "Shakes", price: "$7.49", emoji: "🍪",
+    { name: "Oreo Cookie Shake", category: "Shakes", price: "$7.49", emoji: "🍪", image: "images/oreo-cookie-shake.jpg",
       description: "Made with local dairy." },
-    { name: "Coconut Vanilla Shake (vegan)", category: "Shakes", price: "$7.49", emoji: "🥥",
+    { name: "Coconut Vanilla Shake (vegan)", category: "Shakes", price: "$7.49", emoji: "🥥", image: "images/coconut-vanilla-shake.jpg",
       description: "" },
-    { name: "Fountain Soda", category: "Drinks", price: "$2.99", emoji: "🥤",
+    { name: "Fountain Soda", category: "Drinks", price: "$2.99", emoji: "🥤", image: "images/fountain-soda.jpg",
       description: "Coke, Diet Coke, Sprite, Dr Pepper, lemonade — free refills." },
-    { name: "Iced Tea", category: "Drinks", price: "$2.99", emoji: "🍵",
+    { name: "Iced Tea", category: "Drinks", price: "$2.99", emoji: "🍵", image: "images/iced-tea.jpg",
       description: "Sweet or unsweetened — free refills." },
-    { name: "Craft Root Beer", category: "Drinks", price: "$3.99", emoji: "🥤",
+    { name: "Craft Root Beer", category: "Drinks", price: "$3.99", emoji: "🥤", image: "images/root-beer.jpg",
       description: "Bottled." },
-    { name: "Bottled Water", category: "Drinks", price: "$2.49", emoji: "💧",
+    { name: "Bottled Water", category: "Drinks", price: "$2.49", emoji: "💧", image: "images/bottled-water.jpg",
       description: "" },
-    { name: "Smash Brownie", category: "Desserts", price: "$5.49", emoji: "🍫",
+    { name: "Smash Brownie", category: "Desserts", price: "$5.49", emoji: "🍫", image: "images/smash-brownie.jpg",
       description: "Warm chocolate brownie topped with vanilla soft serve." },
-    { name: "Apple Pie Bites", category: "Desserts", price: "$4.99", emoji: "🥧",
+    { name: "Apple Pie Bites", category: "Desserts", price: "$4.99", emoji: "🥧", image: "images/apple-pie-bites.jpg",
       description: "Cinnamon-sugar apple turnovers with caramel dipping sauce." },
   ];
+
+  // ---- Toast + click-to-copy ----
+  let toastTimer = null;
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  document.body.appendChild(toast);
+
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add("visible");
+    toastTimer = setTimeout(() => toast.classList.remove("visible"), 3000);
+  }
+
+  async function copyItem(itemName) {
+    // Layout is checked at click time, so the hint stays correct after a resize.
+    const isWideLayout = window.matchMedia("(min-width: 900px)").matches;
+    const chatLocation = isWideLayout ? "on the side" : "at the bottom";
+    try {
+      await navigator.clipboard.writeText(itemName);
+      showToast(`"${itemName}" copied — paste it in the AI Agent chat box ${chatLocation} and start asking questions!`);
+    } catch (err) {
+      showToast(`Couldn't copy automatically. Item name: ${itemName}`);
+    }
+  }
 
   // ---- Menu rendering + pill filters ----
   const grid = document.getElementById("menu-grid");
@@ -433,10 +488,20 @@
     for (const item of items) {
       const card = document.createElement("article");
       card.className = "card";
+      card.addEventListener("click", () => copyItem(item.name));
 
       const imgSlot = document.createElement("div");
       imgSlot.className = "card-img";
-      imgSlot.textContent = item.emoji;
+      const img = document.createElement("img");
+      img.className = "item-image";
+      img.src = item.image;
+      img.alt = item.name;
+      img.loading = "lazy";
+      // If the image fails to load, fall back to the emoji placeholder.
+      img.addEventListener("error", () => {
+        imgSlot.textContent = item.emoji;
+      });
+      imgSlot.appendChild(img);
 
       const body = document.createElement("div");
       body.className = "card-body";

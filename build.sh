@@ -55,6 +55,9 @@ cp -R app "$BUILD_DIR/app"
 echo "==> Copying static frontend into ${BUILD_DIR}/static"
 cp -R static "$BUILD_DIR/static"
 
+echo "==> Copying menu images into ${BUILD_DIR}/images"
+cp -R images "$BUILD_DIR/images"
+
 echo "==> Stripping build noise (__pycache__, *.pyc, .DS_Store, dist-info RECORD)"
 find "$BUILD_DIR" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "$BUILD_DIR" -type f -name "*.pyc" -delete
