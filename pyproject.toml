@@ -1,0 +1,17 @@
+[project]
+name = "restaurant-agent"
+version = "0.1.0"
+description = "Restaurant Q&A agent — FastAPI service answering questions about a restaurant via Claude."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "anthropic>=0.102.0",
+    "fastapi>=0.136.1",
+    "mangum>=0.21.0",
+    "python-dotenv>=1.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "uvicorn>=0.47.0",
+]
