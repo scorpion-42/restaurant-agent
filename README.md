@@ -10,14 +10,14 @@ An HTTP API that answers customer questions about a restaurant — built with Fa
 
 ## What it does
 
-"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. Each request is single-turn: there is no conversation memory between calls. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat sidebar) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
+"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. It supports multi-turn conversations — you can ask follow-up questions and the agent maintains context within a session. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat sidebar) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
 
 ## Try it
 
 Two ways to try it:
 
 - **Chat UI:** open the [chat page](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/) and type a question.
-- **Swagger UI:** open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"question": "..."}`.
+- **Swagger UI:** open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"messages": [{"role": "user", "content": "..."}]}`.
 
 Some questions to try:
 
@@ -28,6 +28,8 @@ Some questions to try:
 - `What comes on the Bacon BBQ Stack?`
 - `Can you help me debug my Python code?` — off-topic; watch it redirect back to restaurant questions
 - `¿Tienen opciones veganas?` — Spanish; "Do you have vegan options?"
+
+**Try a follow-up:** ask `Which burgers are vegetarian?`, then `What about for kids?` — the agent keeps the context from the first question.
 
 ## Architecture
 
@@ -103,5 +105,5 @@ restaurant-agent/
 ## Notes
 
 - "The Smashery" and its entire menu are fictional.
-- Q&A is single-turn by design — the service keeps no conversation history.
+- Conversation history is multi-turn but client-managed — the backend stays stateless, and refreshing the page starts a new conversation.
 - Menu data lives in the system prompt; updating the menu means editing `app/main.py` and redeploying.

@@ -192,11 +192,32 @@
   /* ---- Chat sidebar ---- */
   .chat-header {
     flex-shrink: 0;
-    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-title {
     font-family: var(--font-display);
     font-weight: 700;
     color: var(--accent);
-    border-bottom: 1px solid var(--border);
+  }
+  #new-convo {
+    font-family: var(--font);
+    font-size: 0.74rem;
+    padding: 4px 10px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  #new-convo:hover {
+    color: var(--accent);
+    border-color: var(--accent);
   }
   .chat-history {
     flex: 1;
@@ -325,7 +346,10 @@
     </main>
 
     <aside class="chat">
-      <div class="chat-header">Ask The Smashery</div>
+      <div class="chat-header">
+        <span class="chat-title">Ask The Smashery</span>
+        <button id="new-convo" type="button">New conversation</button>
+      </div>
       <div class="chat-history" id="chat"></div>
       <form class="composer" id="composer">
         <input id="question" type="text" autocomplete="off"
@@ -464,11 +488,16 @@
 
   renderMenu("all");
 
-  // ---- Chat sidebar (behavior carried from Milestone 1) ----
+  // ---- Chat sidebar — multi-turn conversation ----
   const chat = document.getElementById("chat");
   const form = document.getElementById("composer");
   const input = document.getElementById("question");
   const send = document.getElementById("send");
+  const newConvo = document.getElementById("new-convo");
+
+  // Source of truth for the conversation. The full history is sent on every
+  // request (the backend is stateless); cleared by "New conversation".
+  let conversationHistory = [];
 
   function addMessage(text, className) {
     const el = document.createElement("div");
@@ -484,6 +513,7 @@
     const question = input.value.trim();
     if (!question) return;
 
+    conversationHistory.push({ role: "user", content: question });
     addMessage(question, "user");
     input.value = "";
     send.disabled = true;
@@ -493,19 +523,30 @@
       const res = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question }),
+        body: JSON.stringify({ messages: conversationHistory }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+      conversationHistory.push({ role: "assistant", content: data.answer });
       pending.textContent = data.answer;
       pending.className = "msg assistant";
     } catch (err) {
+      // Drop the failed user turn — history holds only completed exchanges.
+      conversationHistory.pop();
       pending.textContent = "Error: " + err.message;
       pending.className = "msg error";
     } finally {
       send.disabled = false;
       input.focus();
     }
+  });
+
+  // "New conversation" — reset history and clear the chat display.
+  newConvo.addEventListener("click", function () {
+    conversationHistory = [];
+    chat.innerHTML = "";
+    input.value = "";
+    input.focus();
   });
 </script>
 </body>

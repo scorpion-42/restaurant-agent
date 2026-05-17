@@ -6,6 +6,7 @@ restaurant by delegating to Claude (Anthropic API).
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from anthropic import Anthropic, AnthropicError
 from dotenv import load_dotenv
@@ -109,18 +110,38 @@ def root():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-class ChatRequest(BaseModel):
-    """Incoming chat request payload."""
+class Message(BaseModel):
+    """A single turn in the conversation."""
 
-    question: str
+    role: Literal["user", "assistant"]
+    content: str
 
-    @field_validator("question")
+    @field_validator("content")
     @classmethod
-    def question_not_blank(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("question must not be empty or whitespace")
-        return stripped
+    def content_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("content must not be empty or whitespace")
+        return v
+
+
+class ChatRequest(BaseModel):
+    """Incoming chat request payload (multi-turn conversation history)."""
+
+    messages: list[Message]
+
+    @field_validator("messages")
+    @classmethod
+    def validate_messages(cls, msgs: list[Message]) -> list[Message]:
+        if not msgs:
+            raise ValueError("messages must not be empty")
+        if msgs[0].role != "user":
+            raise ValueError("first message must have role 'user'")
+        if msgs[-1].role != "user":
+            raise ValueError("last message must have role 'user' (the question being asked)")
+        for i in range(1, len(msgs)):
+            if msgs[i].role == msgs[i - 1].role:
+                raise ValueError(f"messages must alternate user/assistant; index {i} has same role as previous")
+        return msgs
 
 
 class ChatResponse(BaseModel):
@@ -131,7 +152,7 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    """Answer a restaurant question via Claude."""
+    """Answer the latest question via Claude, given the full conversation history."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -145,7 +166,7 @@ def chat(request: ChatRequest) -> ChatResponse:
             model=MODEL,
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": request.question}],
+            messages=[{"role": m.role, "content": m.content} for m in request.messages],
         )
     except AnthropicError as exc:
         raise HTTPException(
