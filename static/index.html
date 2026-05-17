@@ -1,138 +1,512 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Smashery</title>
-  <style>
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f4f4f4;
-      display: flex;
-      flex-direction: column;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Smashery</title>
+<style>
+  /* ---- Theme ---- */
+  :root {
+    --bg: #faf6ef;
+    --surface: #ffffff;
+    --text: #2b2a28;
+    --muted: #6f6a60;
+    --accent: #c44536;
+    --accent-dark: #a3392b;
+    --border: #e6ded0;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.13);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-display: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  [hidden] { display: none !important; }
+
+  /* ---- Header ---- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 14px 28px;
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+  }
+  .tabs { display: flex; gap: 8px; }
+  .tab {
+    font-family: var(--font);
+    font-size: 0.95rem;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .tab:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* ---- Layout: main content + chat sidebar ---- */
+  .layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 65fr 35fr;
+    min-height: 0;
+  }
+  .content {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 24px 28px;
+  }
+  .chat {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+  }
+
+  /* ---- Pill filter bar ---- */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .pill {
+    font-size: 0.9rem;
+    padding: 7px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: var(--surface);
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .pill:hover { background: #f0e3df; }
+  .pill.active { background: var(--accent); color: #fff; }
+
+  /* ---- Menu grid ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+  }
+  /* Image slot: stable 4:3 container — holds an emoji now, an <img> later */
+  .card-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    line-height: 1;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .card-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+  }
+  .card-name { font-size: 1.05rem; font-weight: 700; }
+  .card-price { color: var(--accent); font-weight: 700; font-size: 0.95rem; }
+  .card-desc { color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
+
+  /* ---- Restaurant Info tab ---- */
+  .info { max-width: 640px; }
+  .info h2 {
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .info h3 {
+    font-size: 1.05rem;
+    margin: 24px 0 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .info dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 18px;
+  }
+  .info dt { font-weight: 700; }
+  .info dd { color: var(--muted); }
+  .diet-item { color: var(--muted); line-height: 1.55; margin-bottom: 9px; }
+  .diet-item strong { color: var(--text); }
+
+  /* ---- Chat sidebar ---- */
+  .chat-header {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-history {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+  .msg {
+    max-width: 85%;
+    margin: 5px 0;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .msg.user { background: var(--accent); color: #fff; align-self: flex-end; }
+  .msg.assistant {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+  }
+  .msg.error {
+    background: #fcdede;
+    border: 1px solid #e0a0a0;
+    color: #8a1f1f;
+    align-self: flex-start;
+  }
+  .msg.pending { color: var(--muted); font-style: italic; }
+  .composer {
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .composer input {
+    flex: 1;
+    padding: 9px;
+    font-family: var(--font);
+    font-size: 0.92rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .composer button {
+    padding: 9px 16px;
+    font-size: 0.92rem;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .composer button:hover { background: var(--accent-dark); }
+  .composer button:disabled { opacity: 0.5; cursor: default; }
+
+  /* ---- Tablet: 2-column grid ---- */
+  @media (max-width: 1200px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---- Mobile: stack header → menu → chat in one column ---- */
+  @media (max-width: 900px) {
+    body { height: auto; overflow: visible; }
+    .layout { grid-template-columns: 1fr; }
+    .content { overflow-y: visible; }
+    .grid { grid-template-columns: 1fr; }
+    .chat {
+      height: 70vh;
+      border-left: none;
+      border-top: 1px solid var(--border);
     }
-    header {
-      background: #8b3a1b;
-      color: #fff;
-      padding: 14px;
-      text-align: center;
-      font-size: 1.2rem;
-      font-weight: 600;
-    }
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      width: 100%;
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-    .msg {
-      max-width: 80%;
-      margin: 6px 0;
-      padding: 8px 12px;
-      border-radius: 10px;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    .user {
-      background: #d6e8d6;
-      margin-left: auto;
-    }
-    .assistant {
-      background: #fff;
-      border: 1px solid #ddd;
-    }
-    .error {
-      background: #fcdede;
-      border: 1px solid #e0a0a0;
-      color: #8a1f1f;
-    }
-    .pending { color: #888; font-style: italic; }
-    #composer {
-      display: flex;
-      gap: 8px;
-      width: 100%;
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 12px 16px;
-      background: #fff;
-      border-top: 1px solid #ddd;
-    }
-    #question {
-      flex: 1;
-      padding: 9px;
-      font-size: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    #send {
-      padding: 9px 18px;
-      font-size: 1rem;
-      color: #fff;
-      background: #8b3a1b;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    #send:disabled { opacity: 0.5; cursor: default; }
-  </style>
+    header { padding: 12px 16px; }
+    .logo { font-size: 1.35rem; }
+  }
+</style>
 </head>
 <body>
-  <header>The Smashery</header>
-  <div id="chat"></div>
-  <form id="composer">
-    <input id="question" type="text" autocomplete="off" autofocus
-           placeholder="Ask about our menu, hours, or dietary options..." />
-    <button id="send" type="submit">Send</button>
-  </form>
+  <header>
+    <div class="logo">THE SMASHERY</div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="menu">Menu</button>
+      <button class="tab" data-tab="info">Restaurant Info</button>
+    </nav>
+  </header>
 
-  <script>
-    const chat = document.getElementById("chat");
-    const form = document.getElementById("composer");
-    const input = document.getElementById("question");
-    const send = document.getElementById("send");
+  <div class="layout">
+    <main class="content">
+      <!-- Menu tab -->
+      <section id="menu-tab">
+        <div class="pills">
+          <button class="pill active" data-filter="all">All</button>
+          <button class="pill" data-filter="specials">Specials</button>
+          <button class="pill" data-filter="drinks">Drinks</button>
+        </div>
+        <div class="grid" id="menu-grid"></div>
+      </section>
 
-    function addMessage(text, className) {
-      const el = document.createElement("div");
-      el.className = "msg " + className;
-      el.textContent = text;
-      chat.appendChild(el);
-      chat.scrollTop = chat.scrollHeight;
-      return el;
+      <!-- Restaurant Info tab -->
+      <section id="info-tab" class="info" hidden>
+        <h2>The Smashery</h2>
+        <dl>
+          <dt>Address</dt><dd>42 Hitchhiker, Sunnyvale, CA 94085</dd>
+          <dt>Phone</dt><dd>(979) 402-7733</dd>
+          <dt>Dining</dt><dd>Dine-in, takeout, and delivery (via major delivery apps). Walk-in only — no reservations.</dd>
+        </dl>
+
+        <h3>Hours</h3>
+        <dl>
+          <dt>Monday–Thursday</dt><dd>11:00 AM – 10:00 PM</dd>
+          <dt>Friday–Saturday</dt><dd>11:00 AM – 11:00 PM</dd>
+          <dt>Sunday</dt><dd>12:00 PM – 9:00 PM</dd>
+        </dl>
+
+        <h3>Dietary notes</h3>
+        <p class="diet-item"><strong>Vegetarian:</strong> Garden Bliss burger, Mac &amp; Cheese, Side Salad, all shakes, all desserts, all sides.</p>
+        <p class="diet-item"><strong>Vegan:</strong> Beyond Smash burger, Coconut Vanilla Shake, Side Salad with balsamic vinaigrette, Hand-cut Fries and Sweet Potato Fries (fried in vegetable oil in a separate fryer from chicken).</p>
+        <p class="diet-item"><strong>Gluten-free:</strong> Any burger or chicken sandwich can be served in a lettuce wrap on request. Side Salad and all fries are gluten-free. Shakes are gluten-free except Oreo Cookie.</p>
+        <p class="diet-item"><strong>Spicy items:</strong> The Spicy Diablo (medium spicy), Nashville Hot Chicken (very spicy).</p>
+        <p class="diet-item"><strong>Allergies:</strong> Please inform our staff of allergies when ordering. Common nut allergens (peanuts, tree nuts) are not used in our kitchen. We cannot fully guarantee against cross-contamination — call us for detailed questions.</p>
+      </section>
+    </main>
+
+    <aside class="chat">
+      <div class="chat-header">Ask The Smashery</div>
+      <div class="chat-history" id="chat"></div>
+      <form class="composer" id="composer">
+        <input id="question" type="text" autocomplete="off"
+               placeholder="Ask about our menu, hours, or dietary options..." />
+        <button id="send" type="submit">Send</button>
+      </form>
+    </aside>
+  </div>
+
+<script>
+  // ---- Menu data: all 26 items, sourced from SYSTEM_PROMPT in app/main.py ----
+  const MENU = [
+    { name: "The Classic Smash", category: "Signature Burgers", price: "$11.99", emoji: "🍔",
+      description: "Two smashed beef patties, American cheese, lettuce, tomato, onion, pickles, signature sauce, brioche bun." },
+    { name: "Bacon BBQ Stack", category: "Signature Burgers", price: "$14.99", emoji: "🍔",
+      description: "Double beef patties, crispy bacon, sharp cheddar, fried onion rings, house BBQ sauce, brioche bun." },
+    { name: "The Spicy Diablo", category: "Signature Burgers", price: "$13.99", emoji: "🍔",
+      description: "Beef patty, pepper jack, fresh jalapeños, sriracha aioli, lettuce, jalapeño-cheddar bun. Spicy." },
+    { name: "Mushroom Swiss", category: "Signature Burgers", price: "$13.49", emoji: "🍔",
+      description: "Beef patty, sautéed cremini mushrooms, Swiss, garlic aioli, arugula, brioche bun." },
+    { name: "Garden Bliss (vegetarian)", category: "Signature Burgers", price: "$12.99", emoji: "🌱",
+      description: "House black bean and quinoa patty, avocado, lettuce, tomato, chipotle mayo, whole wheat bun." },
+    { name: "Beyond Smash (vegan)", category: "Signature Burgers", price: "$14.49", emoji: "🌿",
+      description: "Beyond Meat patty, vegan cheddar, lettuce, tomato, onion, vegan mayo, vegan bun." },
+    { name: "Crispy Chicken Deluxe", category: "Chicken", price: "$12.99", emoji: "🍗",
+      description: "Buttermilk-fried chicken thigh, lettuce, pickles, honey mustard, brioche bun." },
+    { name: "Nashville Hot Chicken", category: "Chicken", price: "$13.99", emoji: "🍗",
+      description: "Spicy Nashville-style fried chicken, slaw, pickles, comeback sauce, brioche bun. Very spicy." },
+    { name: "Lil' Smash", category: "Kids Menu", price: "$7.99", emoji: "🍔",
+      description: "Single patty, American cheese, ketchup, small bun." },
+    { name: "Chicken Tenders", category: "Kids Menu", price: "$7.99", emoji: "🍗",
+      description: "Three breaded chicken tenders." },
+    { name: "Hand-cut Fries", category: "Sides", price: "$4.49 (small) / $6.49 (large)", emoji: "🍟",
+      description: "" },
+    { name: "Sweet Potato Fries", category: "Sides", price: "$5.49 (small) / $7.49 (large)", emoji: "🍠",
+      description: "" },
+    { name: "Truffle Parmesan Fries", category: "Sides", price: "$7.99", emoji: "🍟",
+      description: "" },
+    { name: "Onion Rings", category: "Sides", price: "$5.99", emoji: "🧅",
+      description: "" },
+    { name: "Mac & Cheese", category: "Sides", price: "$6.49", emoji: "🧀",
+      description: "House blend of cheddar and gruyère." },
+    { name: "Side Salad", category: "Sides", price: "$5.49", emoji: "🥗",
+      description: "Mixed greens, tomato, cucumber. Choice of ranch, balsamic vinaigrette, or blue cheese dressing." },
+    { name: "Vanilla / Chocolate / Strawberry Shake", category: "Shakes", price: "$6.49", emoji: "🥤",
+      description: "Made with local dairy." },
+    { name: "Salted Caramel Shake", category: "Shakes", price: "$7.49", emoji: "🥤",
+      description: "Made with local dairy." },
+    { name: "Oreo Cookie Shake", category: "Shakes", price: "$7.49", emoji: "🍪",
+      description: "Made with local dairy." },
+    { name: "Coconut Vanilla Shake (vegan)", category: "Shakes", price: "$7.49", emoji: "🥥",
+      description: "" },
+    { name: "Fountain Soda", category: "Drinks", price: "$2.99", emoji: "🥤",
+      description: "Coke, Diet Coke, Sprite, Dr Pepper, lemonade — free refills." },
+    { name: "Iced Tea", category: "Drinks", price: "$2.99", emoji: "🍵",
+      description: "Sweet or unsweetened — free refills." },
+    { name: "Craft Root Beer", category: "Drinks", price: "$3.99", emoji: "🥤",
+      description: "Bottled." },
+    { name: "Bottled Water", category: "Drinks", price: "$2.49", emoji: "💧",
+      description: "" },
+    { name: "Smash Brownie", category: "Desserts", price: "$5.49", emoji: "🍫",
+      description: "Warm chocolate brownie topped with vanilla soft serve." },
+    { name: "Apple Pie Bites", category: "Desserts", price: "$4.99", emoji: "🥧",
+      description: "Cinnamon-sugar apple turnovers with caramel dipping sauce." },
+  ];
+
+  // ---- Menu rendering + pill filters ----
+  const grid = document.getElementById("menu-grid");
+
+  function renderMenu(filter) {
+    let items;
+    if (filter === "specials") {
+      items = MENU.filter(m => m.category === "Signature Burgers");
+    } else if (filter === "drinks") {
+      items = MENU.filter(m => m.category === "Drinks" || m.category === "Shakes");
+    } else {
+      items = MENU;
     }
 
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
-      const question = input.value.trim();
-      if (!question) return;
+    grid.innerHTML = "";
+    for (const item of items) {
+      const card = document.createElement("article");
+      card.className = "card";
 
-      addMessage(question, "user");
-      input.value = "";
-      send.disabled = true;
-      const pending = addMessage("thinking...", "assistant pending");
+      const imgSlot = document.createElement("div");
+      imgSlot.className = "card-img";
+      imgSlot.textContent = item.emoji;
 
-      try {
-        const res = await fetch("/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: question }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
-        pending.textContent = data.answer;
-        pending.className = "msg assistant";
-      } catch (err) {
-        pending.textContent = "Error: " + err.message;
-        pending.className = "msg error";
-      } finally {
-        send.disabled = false;
-        input.focus();
+      const body = document.createElement("div");
+      body.className = "card-body";
+
+      const name = document.createElement("div");
+      name.className = "card-name";
+      name.textContent = item.name;
+      body.appendChild(name);
+
+      const price = document.createElement("div");
+      price.className = "card-price";
+      price.textContent = item.price;
+      body.appendChild(price);
+
+      if (item.description) {
+        const desc = document.createElement("p");
+        desc.className = "card-desc";
+        desc.textContent = item.description;
+        body.appendChild(desc);
       }
+
+      card.appendChild(imgSlot);
+      card.appendChild(body);
+      grid.appendChild(card);
+    }
+  }
+
+  document.querySelectorAll(".pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      renderMenu(pill.dataset.filter);
     });
-  </script>
+  });
+
+  // ---- Tab switching: Menu <-> Restaurant Info ----
+  const menuTab = document.getElementById("menu-tab");
+  const infoTab = document.getElementById("info-tab");
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const showMenu = tab.dataset.tab === "menu";
+      menuTab.hidden = !showMenu;
+      infoTab.hidden = showMenu;
+    });
+  });
+
+  renderMenu("all");
+
+  // ---- Chat sidebar (behavior carried from Milestone 1) ----
+  const chat = document.getElementById("chat");
+  const form = document.getElementById("composer");
+  const input = document.getElementById("question");
+  const send = document.getElementById("send");
+
+  function addMessage(text, className) {
+    const el = document.createElement("div");
+    el.className = "msg " + className;
+    el.textContent = text;
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+    return el;
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const question = input.value.trim();
+    if (!question) return;
+
+    addMessage(question, "user");
+    input.value = "";
+    send.disabled = true;
+    const pending = addMessage("thinking...", "assistant pending");
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+      pending.textContent = data.answer;
+      pending.className = "msg assistant";
+    } catch (err) {
+      pending.textContent = "Error: " + err.message;
+      pending.className = "msg error";
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  });
+</script>
 </body>
 </html>

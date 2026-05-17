@@ -10,7 +10,7 @@ An HTTP API that answers customer questions about a restaurant — built with Fa
 
 ## What it does
 
-"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. Each request is single-turn: there is no conversation memory between calls. The service exposes two interfaces — a web chat UI at the root URL and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
+"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. Each request is single-turn: there is no conversation memory between calls. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat sidebar) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
 
 ## Try it
 
