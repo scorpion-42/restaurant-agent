@@ -52,6 +52,9 @@ uv pip install \
 echo "==> Copying application code into ${BUILD_DIR}/app"
 cp -R app "$BUILD_DIR/app"
 
+echo "==> Copying static frontend into ${BUILD_DIR}/static"
+cp -R static "$BUILD_DIR/static"
+
 echo "==> Stripping build noise (__pycache__, *.pyc, .DS_Store, dist-info RECORD)"
 find "$BUILD_DIR" -type d -name "__pycache__" -prune -exec rm -rf {} +
 find "$BUILD_DIR" -type f -name "*.pyc" -delete

@@ -4,16 +4,22 @@ An HTTP API that answers customer questions about a restaurant — built with Fa
 
 ## Live demo
 
-- **Live API (Swagger UI):** https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs
+- **Live demo — chat UI:** https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/
+- **Live demo — Swagger UI:** https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs
 - **GitHub repo:** https://github.com/scorpion-42/restaurant-agent
 
 ## What it does
 
-"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. Each request is single-turn: there is no conversation memory between calls.
+"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. Each request is single-turn: there is no conversation memory between calls. The service exposes two interfaces — a web chat UI at the root URL and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
 
 ## Try it
 
-Open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"question": "..."}`. Some questions to try:
+Two ways to try it:
+
+- **Chat UI:** open the [chat page](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/) and type a question.
+- **Swagger UI:** open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"question": "..."}`.
+
+Some questions to try:
 
 - `What time do you close on Saturday?`
 - `Which burgers are vegetarian?`

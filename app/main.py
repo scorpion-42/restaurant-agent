@@ -5,10 +5,12 @@ restaurant by delegating to Claude (Anthropic API).
 """
 
 import os
+from pathlib import Path
 
 from anthropic import Anthropic, AnthropicError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
 
 # Load .env if present — local dev convenience. In Lambda the env var is
@@ -94,7 +96,17 @@ DIETARY NOTES
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
 
+# Directory holding the static frontend; resolves correctly both locally
+# and inside Lambda's /var/task.
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
 app = FastAPI(title="Restaurant Q&A Agent")
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Serve the chat UI."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 class ChatRequest(BaseModel):
