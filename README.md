@@ -10,7 +10,7 @@ An HTTP API that answers customer questions about a restaurant — built with Fa
 
 ## What it does
 
-"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, and recommendations — by sending the question to Claude together with a system prompt that holds the restaurant's details. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer. It supports multi-turn conversations — you can ask follow-up questions and the agent maintains context within a session. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat sidebar) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
+"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, recommendations, and current best-sellers — by sending the question to Claude together with a system prompt that holds the restaurant's details. The agent knows the current date and time, so it can tell you whether the restaurant is open right now, and it reads a daily sales dataset to answer "what's most popular?" with real figures. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer, and it supports multi-turn conversations — you can ask follow-up questions and the agent keeps the context within a session. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat panel — a sidebar on desktop, a full-screen modal on mobile — that opens with one-tap starter questions) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
 
 ## Try it
 
@@ -22,9 +22,11 @@ Two ways to try it:
 Some questions to try:
 
 - `What time do you close on Saturday?`
+- `Are you open right now?` — the agent knows the current date and time
 - `Which burgers are vegetarian?`
 - `I'm gluten-free — what are my options?`
 - `I love spicy food. What do you recommend?`
+- `What's your best seller today?` — answered from a daily sales dataset
 - `What comes on the Bacon BBQ Stack?`
 - `Can you help me debug my Python code?` — off-topic; watch it redirect back to restaurant questions
 - `¿Tienen opciones veganas?` — Spanish; "Do you have vegan options?"
@@ -51,7 +53,7 @@ FastAPI  ──  POST /chat        request validation and routing
 Anthropic API  ──  Claude Haiku 4.5
 ```
 
-There is no database, no authentication, and no API Gateway — the Lambda Function URL is the public endpoint directly. The restaurant's menu and details are hardcoded in the system prompt, so there is no external data store.
+There is no managed database, no authentication, and no API Gateway — the Lambda Function URL is the public endpoint directly. The restaurant's menu and details live in the system prompt, and daily sales figures in a static JSON file (`app/sales_data.json`) bundled with the app. Both are read-only and loaded at startup — there is no external or networked data store.
 
 ## Stack
 
@@ -99,13 +101,17 @@ restaurant-agent/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py            FastAPI app: POST /chat, request/response models, system prompt
-│   └── lambda_handler.py  Mangum adapter — the Lambda entry point
+│   ├── lambda_handler.py  Mangum adapter — the Lambda entry point
+│   └── sales_data.json    daily unit-sales per menu item, for best-seller answers
+├── static/
+│   └── index.html         single-page chat + menu web UI
+├── images/                menu item photos (JPEGs)
 ├── build.sh               builds deployment.zip for AWS Lambda
 └── pyproject.toml         project metadata and dependencies
 ```
 
 ## Notes
 
-- "The Smashery" and its entire menu are fictional.
+- "The Smashery," its menu, and its sales figures are all fictional.
 - Conversation history is multi-turn but client-managed — the backend stays stateless, and refreshing the page starts a new conversation.
-- Menu data lives in the system prompt; updating the menu means editing `app/main.py` and redeploying.
+- Menu and restaurant details live in the system prompt, and daily sales figures in `app/sales_data.json`; both are bundled into the deployment, so changing them means editing the file and redeploying.
