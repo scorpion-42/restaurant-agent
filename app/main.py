@@ -4,9 +4,12 @@ Exposes a single POST /chat endpoint that answers questions about the
 restaurant by delegating to Claude (Anthropic API).
 """
 
+import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from anthropic import Anthropic, AnthropicError
 from dotenv import load_dotenv
@@ -126,10 +129,50 @@ ANSWERING RULES
 - When something is logically implied by what IS stated, state it directly without hedging. A vegan item contains no dairy and no animal products. A gluten-free item contains no gluten. State these confidently when asked.
 - Use the calorie counts, customization prices, and other specifics from this prompt directly. Do not estimate values that aren't given to you.
 - Give only the final, correct answer. Do not narrate corrections, hedging, or reasoning steps ("wait, let me clarify," "actually," "I should reconsider"). Answer directly the first time.
-- You do not know today's date or the current time. For "are you open now" or "open late" style questions, give the full weekly schedule plainly. Do not say "today" or "right now" as if you know the current day; phrase answers by day of the week."""
+- For "best seller," "most popular," "what sells best," or "best seller of the day" questions, use the TODAY'S SALES figures at the end of this prompt: the item with the highest count is the best seller, and for a category (drinks, sides, shakes, etc.) compare only items within that category. State the answer confidently as a fact and never say you lack sales data; do not quote the counts unless asked. Never answer with just the item name — name it, then sell it: add an appetizing sentence or two about its key ingredients or what makes it special, in the warm, enthusiastic voice of a host who loves the menu.
+- The CURRENT DATE & TIME section at the end of this prompt gives the current day and time at the restaurant. Use it. For "are you open now," "open late," or similar questions, compare the current time to the hours above and answer directly — tell the customer whether we are open right now and, if so, until when, or when we next open."""
 
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
+
+# Fake sales "database" — unit sales per menu item for each day of the week.
+# Loaded once at startup; bundled into the Lambda zip alongside app/ by build.sh.
+SALES_DATA_PATH = Path(__file__).resolve().parent / "sales_data.json"
+SALES_DATA = json.loads(SALES_DATA_PATH.read_text(encoding="utf-8"))
+
+# The Smashery is in Sunnyvale, CA. The current date/time is resolved in the
+# restaurant's timezone (not the Lambda host's UTC) so "are you open now?" and
+# "best seller of the day" use the right local day even near midnight.
+RESTAURANT_TZ = ZoneInfo("America/Los_Angeles")
+
+
+def live_context_section() -> str:
+    """Build the per-request CURRENT DATE & TIME and TODAY'S SALES blocks.
+
+    Both are derived from a single timestamp in the restaurant's timezone, so
+    the weekday shown to the assistant always matches the sales column it sees.
+    """
+    now = datetime.now(RESTAURANT_TZ)
+    today = now.strftime("%A")
+    stamp = now.strftime("%A, %B %-d, %Y at %-I:%M %p %Z")
+
+    lines = [
+        "CURRENT DATE & TIME",
+        f"It is currently {stamp} at the restaurant.",
+        "",
+        "TODAY'S SALES",
+        "Units sold per menu item so far today, grouped by menu category.",
+    ]
+    by_category: dict[str, list[dict]] = {}
+    for item in SALES_DATA:
+        by_category.setdefault(item["category"], []).append(item)
+    for category, items in by_category.items():
+        lines.append("")
+        lines.append(f"{category}:")
+        for item in items:
+            lines.append(f"- {item['name']}: {item['sales'][today]}")
+    return "\n\n" + "\n".join(lines)
+
 
 # Directories for the frontend and menu images; resolve correctly both
 # locally and inside Lambda's /var/task.
@@ -203,7 +246,7 @@ def chat(request: ChatRequest) -> ChatResponse:
         message = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
+            system=SYSTEM_PROMPT + live_context_section(),
             messages=[{"role": m.role, "content": m.content} for m in request.messages],
         )
     except AnthropicError as exc:

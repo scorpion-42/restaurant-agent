@@ -1,0 +1,132 @@
+[
+  {
+    "name": "The Classic Smash",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 168, "Tuesday": 156, "Wednesday": 164, "Thursday": 182, "Friday": 241, "Saturday": 273, "Sunday": 214 }
+  },
+  {
+    "name": "Bacon BBQ Stack",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 94, "Tuesday": 88, "Wednesday": 92, "Thursday": 103, "Friday": 138, "Saturday": 158, "Sunday": 122 }
+  },
+  {
+    "name": "The Spicy Diablo",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 76, "Tuesday": 71, "Wednesday": 75, "Thursday": 84, "Friday": 112, "Saturday": 129, "Sunday": 99 }
+  },
+  {
+    "name": "Mushroom Swiss",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 68, "Tuesday": 63, "Wednesday": 67, "Thursday": 75, "Friday": 99, "Saturday": 115, "Sunday": 88 }
+  },
+  {
+    "name": "Garden Bliss",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 49, "Tuesday": 46, "Wednesday": 48, "Thursday": 54, "Friday": 72, "Saturday": 83, "Sunday": 64 }
+  },
+  {
+    "name": "Beyond Smash",
+    "category": "Signature Burgers",
+    "sales": { "Monday": 41, "Tuesday": 38, "Wednesday": 40, "Thursday": 45, "Friday": 60, "Saturday": 70, "Sunday": 53 }
+  },
+  {
+    "name": "Crispy Chicken Deluxe",
+    "category": "Chicken",
+    "sales": { "Monday": 84, "Tuesday": 78, "Wednesday": 83, "Thursday": 92, "Friday": 123, "Saturday": 141, "Sunday": 109 }
+  },
+  {
+    "name": "Nashville Hot Chicken",
+    "category": "Chicken",
+    "sales": { "Monday": 62, "Tuesday": 58, "Wednesday": 61, "Thursday": 68, "Friday": 91, "Saturday": 105, "Sunday": 81 }
+  },
+  {
+    "name": "Lil' Smash",
+    "category": "Kids Menu",
+    "sales": { "Monday": 36, "Tuesday": 33, "Wednesday": 35, "Thursday": 39, "Friday": 51, "Saturday": 67, "Sunday": 58 }
+  },
+  {
+    "name": "Chicken Tenders",
+    "category": "Kids Menu",
+    "sales": { "Monday": 44, "Tuesday": 41, "Wednesday": 43, "Thursday": 48, "Friday": 62, "Saturday": 79, "Sunday": 70 }
+  },
+  {
+    "name": "Hand-cut Fries",
+    "category": "Sides",
+    "sales": { "Monday": 149, "Tuesday": 139, "Wednesday": 146, "Thursday": 162, "Friday": 214, "Saturday": 244, "Sunday": 192 }
+  },
+  {
+    "name": "Sweet Potato Fries",
+    "category": "Sides",
+    "sales": { "Monday": 72, "Tuesday": 67, "Wednesday": 71, "Thursday": 79, "Friday": 105, "Saturday": 121, "Sunday": 93 }
+  },
+  {
+    "name": "Truffle Parmesan Fries",
+    "category": "Sides",
+    "sales": { "Monday": 55, "Tuesday": 51, "Wednesday": 54, "Thursday": 60, "Friday": 81, "Saturday": 94, "Sunday": 72 }
+  },
+  {
+    "name": "Onion Rings",
+    "category": "Sides",
+    "sales": { "Monday": 61, "Tuesday": 57, "Wednesday": 60, "Thursday": 67, "Friday": 89, "Saturday": 103, "Sunday": 79 }
+  },
+  {
+    "name": "Mac & Cheese",
+    "category": "Sides",
+    "sales": { "Monday": 47, "Tuesday": 44, "Wednesday": 46, "Thursday": 52, "Friday": 69, "Saturday": 80, "Sunday": 61 }
+  },
+  {
+    "name": "Side Salad",
+    "category": "Sides",
+    "sales": { "Monday": 38, "Tuesday": 35, "Wednesday": 37, "Thursday": 42, "Friday": 55, "Saturday": 63, "Sunday": 48 }
+  },
+  {
+    "name": "Vanilla / Chocolate / Strawberry Shake",
+    "category": "Shakes",
+    "sales": { "Monday": 64, "Tuesday": 60, "Wednesday": 63, "Thursday": 70, "Friday": 94, "Saturday": 108, "Sunday": 83 }
+  },
+  {
+    "name": "Salted Caramel Shake",
+    "category": "Shakes",
+    "sales": { "Monday": 57, "Tuesday": 53, "Wednesday": 56, "Thursday": 62, "Friday": 83, "Saturday": 96, "Sunday": 74 }
+  },
+  {
+    "name": "Oreo Cookie Shake",
+    "category": "Shakes",
+    "sales": { "Monday": 69, "Tuesday": 64, "Wednesday": 68, "Thursday": 76, "Friday": 101, "Saturday": 117, "Sunday": 90 }
+  },
+  {
+    "name": "Coconut Vanilla Shake",
+    "category": "Shakes",
+    "sales": { "Monday": 35, "Tuesday": 32, "Wednesday": 34, "Thursday": 38, "Friday": 51, "Saturday": 59, "Sunday": 45 }
+  },
+  {
+    "name": "Fountain Soda",
+    "category": "Drinks",
+    "sales": { "Monday": 134, "Tuesday": 125, "Wednesday": 132, "Thursday": 147, "Friday": 196, "Saturday": 223, "Sunday": 176 }
+  },
+  {
+    "name": "Iced Tea",
+    "category": "Drinks",
+    "sales": { "Monday": 92, "Tuesday": 86, "Wednesday": 91, "Thursday": 101, "Friday": 135, "Saturday": 156, "Sunday": 120 }
+  },
+  {
+    "name": "Craft Root Beer",
+    "category": "Drinks",
+    "sales": { "Monday": 49, "Tuesday": 46, "Wednesday": 48, "Thursday": 54, "Friday": 72, "Saturday": 84, "Sunday": 64 }
+  },
+  {
+    "name": "Bottled Water",
+    "category": "Drinks",
+    "sales": { "Monday": 63, "Tuesday": 59, "Wednesday": 62, "Thursday": 69, "Friday": 92, "Saturday": 106, "Sunday": 82 }
+  },
+  {
+    "name": "Smash Brownie",
+    "category": "Desserts",
+    "sales": { "Monday": 51, "Tuesday": 47, "Wednesday": 50, "Thursday": 56, "Friday": 75, "Saturday": 87, "Sunday": 67 }
+  },
+  {
+    "name": "Apple Pie Bites",
+    "category": "Desserts",
+    "sales": { "Monday": 39, "Tuesday": 36, "Wednesday": 38, "Thursday": 43, "Friday": 57, "Saturday": 66, "Sunday": 51 }
+  }
+]
