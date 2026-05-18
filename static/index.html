@@ -78,6 +78,8 @@
     color: #fff;
     border-color: var(--accent);
   }
+  /* The chat tab is a mobile-only control — hidden on desktop. */
+  .tab-chat { display: none; }
 
   /* ---- Layout: main content + chat sidebar ---- */
   .layout {
@@ -226,6 +228,24 @@
     color: var(--accent);
     border-color: var(--accent);
   }
+  .chat-actions { display: flex; align-items: center; gap: 8px; }
+  /* Modal close (×) — hidden on desktop; revealed in the mobile media query. */
+  #chat-close {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  #chat-close:hover { color: var(--accent); border-color: var(--accent); }
   .chat-history {
     flex: 1;
     min-height: 0;
@@ -335,19 +355,30 @@
     .grid { grid-template-columns: repeat(2, 1fr); }
   }
 
-  /* ---- Mobile: stack header → menu → chat in one column ---- */
+  /* ---- Mobile: single column; chat becomes a tab-triggered modal ---- */
   @media (max-width: 900px) {
     body { height: auto; overflow: visible; }
     .layout { grid-template-columns: 1fr; }
     .content { overflow-y: visible; }
     .grid { grid-template-columns: 1fr; }
-    .chat {
-      height: 70vh;
-      border-left: none;
-      border-top: 1px solid var(--border);
-    }
     header { padding: 12px 16px; }
     .logo { font-size: 1.35rem; }
+    .tabs { flex-wrap: wrap; }
+
+    /* Reveal the chat tab; keep the chat itself hidden until it is opened. */
+    .tab-chat { display: block; }
+    .chat { display: none; }
+
+    /* Open state — full-screen overlay above the menu and header. */
+    body.chat-open .chat {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      border-left: none;
+    }
+    body.chat-open { overflow: hidden; }
+    #chat-close { display: flex; }
   }
 </style>
 </head>
@@ -357,6 +388,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="menu">Menu</button>
       <button class="tab" data-tab="info">Restaurant Info</button>
+      <button class="tab tab-chat" data-tab="chat">Ask Smashery</button>
     </nav>
   </header>
 
@@ -400,7 +432,10 @@
     <aside class="chat">
       <div class="chat-header">
         <span class="chat-title">Ask The Smashery</span>
-        <button id="new-convo" type="button">New conversation</button>
+        <div class="chat-actions">
+          <button id="new-convo" type="button">New conversation</button>
+          <button id="chat-close" type="button" aria-label="Close chat">&times;</button>
+        </div>
       </div>
       <div class="chat-history" id="chat"></div>
       <form class="composer" id="composer">
@@ -483,11 +518,14 @@
 
   async function copyItem(itemName) {
     // Layout is checked at click time, so the hint stays correct after a resize.
-    const isWideLayout = window.matchMedia("(min-width: 900px)").matches;
-    const chatLocation = isWideLayout ? "on the side" : "at the bottom";
+    // Mirror the CSS breakpoint (max-width: 900px) so the hint matches the layout.
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    const pasteHint = isMobile
+      ? "paste it in the Ask Smashery tab"
+      : "paste it in the AI Agent chat box on the side";
     try {
       await navigator.clipboard.writeText(itemName);
-      showToast(`"${itemName}" copied — paste it in the AI Agent chat box ${chatLocation} and start asking questions!`);
+      showToast(`"${itemName}" copied — ${pasteHint} and start asking questions!`);
     } catch (err) {
       showToast(`Couldn't copy automatically. Item name: ${itemName}`);
     }
@@ -565,6 +603,12 @@
 
   document.querySelectorAll(".tab").forEach(tab => {
     tab.addEventListener("click", () => {
+      // "Ask Smashery" is a mobile action tab — it opens the chat modal and
+      // leaves the active Menu/Info tab untouched underneath.
+      if (tab.dataset.tab === "chat") {
+        openChat();
+        return;
+      }
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       const showMenu = tab.dataset.tab === "menu";
@@ -581,6 +625,24 @@
   const input = document.getElementById("question");
   const send = document.getElementById("send");
   const newConvo = document.getElementById("new-convo");
+  const chatClose = document.getElementById("chat-close");
+
+  // ---- Mobile chat modal ----
+  // On mobile the chat is a full-screen modal toggled by the body.chat-open
+  // class (see the max-width:900px media query); on desktop the class has no
+  // styling attached, so the sidebar is always shown. conversationHistory is
+  // never touched here — the conversation persists across open/close cycles.
+  function openChat() {
+    document.body.classList.add("chat-open");
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function closeChat() {
+    document.body.classList.remove("chat-open");
+  }
+  chatClose.addEventListener("click", closeChat);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeChat();
+  });
 
   // Source of truth for the conversation. The full history is sent on every
   // request (the backend is stateless); cleared by "New conversation".
