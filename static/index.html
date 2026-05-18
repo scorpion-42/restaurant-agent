@@ -297,6 +297,39 @@
     border-radius: 4px;
   }
 
+  /* ---- Empty-state welcome message + suggestion chips ---- */
+  #chat-welcome {
+    display: none;
+    flex-direction: column;
+  }
+  .chat.chat-empty #chat-welcome { display: flex; }
+  /* Suggestion chips sit in their own bar directly above the composer, shown
+     only while the chat is empty. When shown, the bar carries the divider and
+     the composer drops its own — exactly one line in either state. */
+  .suggestions {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 12px 12px 4px;
+    border-top: 1px solid var(--border);
+  }
+  .chat.chat-empty .suggestions { display: flex; }
+  .chat.chat-empty .composer { border-top: none; }
+  .chip {
+    font-family: var(--font);
+    font-size: 0.82rem;
+    padding: 6px 14px;
+    color: var(--accent);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .chip:hover { background: #f0e3df; border-color: var(--accent); }
+  .chip:active { background: #e4d2cc; }
+
   .composer {
     flex-shrink: 0;
     display: flex;
@@ -429,7 +462,7 @@
       </section>
     </main>
 
-    <aside class="chat">
+    <aside class="chat chat-empty">
       <div class="chat-header">
         <span class="chat-title">Ask The Smashery</span>
         <div class="chat-actions">
@@ -437,7 +470,14 @@
           <button id="chat-close" type="button" aria-label="Close chat">&times;</button>
         </div>
       </div>
-      <div class="chat-history" id="chat"></div>
+      <div class="chat-history" id="chat">
+        <!-- Empty-state welcome bubble; UI-only, never sent to the model. -->
+        <div id="chat-welcome">
+          <div class="msg assistant welcome-bubble">Hi! I'm The Smashery's AI assistant. Ask me anything — or tap a suggestion below to get started.</div>
+        </div>
+      </div>
+      <!-- Suggestion chips — pinned just above the input while the chat is empty. -->
+      <div class="suggestions" id="suggestions"></div>
       <form class="composer" id="composer">
         <input id="question" type="text" autocomplete="off"
                placeholder="Ask about our menu, hours, or dietary options..." />
@@ -621,6 +661,7 @@
 
   // ---- Chat sidebar — multi-turn conversation ----
   const chat = document.getElementById("chat");
+  const chatPanel = document.querySelector(".chat");
   const form = document.getElementById("composer");
   const input = document.getElementById("question");
   const send = document.getElementById("send");
@@ -657,12 +698,41 @@
     return el;
   }
 
-  form.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    const question = input.value.trim();
-    if (!question) return;
+  // ---- Empty-state welcome + suggestion chips ----
+  // The welcome bubble and chips show only while the conversation is empty.
+  // The welcome text is UI-only — it never enters conversationHistory, so the
+  // model is never shown as having "said" it. Visibility is the chat-empty
+  // class on #chat, derived purely from conversationHistory.length.
+  const SUGGESTIONS = [
+    "What's vegan?",
+    "What's most popular?",
+    "Are you open now?",
+    "Surprise me!",
+  ];
+  const suggestions = document.getElementById("suggestions");
+  for (const text of SUGGESTIONS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = text;
+    // A chip sends its text through the normal flow — no second tap needed.
+    chip.addEventListener("click", () => sendQuestion(text));
+    suggestions.appendChild(chip);
+  }
+
+  function updateEmptyState() {
+    // chat-empty lives on the .chat panel so it can control both the welcome
+    // bubble (inside #chat) and the suggestions bar (a sibling of #chat).
+    chatPanel.classList.toggle("chat-empty", conversationHistory.length === 0);
+  }
+
+  async function sendQuestion(question) {
+    question = question.trim();
+    // Ignore blank input and taps that land while a request is in flight.
+    if (!question || send.disabled) return;
 
     conversationHistory.push({ role: "user", content: question });
+    updateEmptyState();
     addMessage(question, "user");
     input.value = "";
     send.disabled = true;
@@ -684,18 +754,26 @@
     } catch (err) {
       // Drop the failed user turn — history holds only completed exchanges.
       conversationHistory.pop();
+      updateEmptyState();
       pending.textContent = "Error: " + err.message;
       pending.className = "msg error";
     } finally {
       send.disabled = false;
       input.focus();
     }
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    sendQuestion(input.value);
   });
 
-  // "New conversation" — reset history and clear the chat display.
+  // "New conversation" — reset history and remove rendered messages, keeping
+  // the static welcome/chips element so the empty state can show again.
   newConvo.addEventListener("click", function () {
     conversationHistory = [];
-    chat.innerHTML = "";
+    chat.querySelectorAll(":scope > .msg").forEach(m => m.remove());
+    updateEmptyState();
     input.value = "";
     input.focus();
   });
