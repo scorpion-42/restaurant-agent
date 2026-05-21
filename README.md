@@ -10,14 +10,14 @@ An HTTP API that answers customer questions about a restaurant — built with Fa
 
 ## What it does
 
-"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, recommendations, and current best-sellers — by sending the question to Claude together with a system prompt that holds the restaurant's details. The agent knows the current date and time, so it can tell you whether the restaurant is open right now, and it reads a daily sales dataset to answer "what's most popular?" with real figures. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer, and it supports multi-turn conversations — you can ask follow-up questions and the agent keeps the context within a session. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat panel — a sidebar on desktop, a full-screen modal on mobile — that opens with one-tap starter questions) and an interactive Swagger UI at `/docs` — both backed by the same `/chat` endpoint.
+"The Smashery" is a fictional smash-burger restaurant. This service answers customer questions about it — menu items, hours, dietary options, recommendations, and current best-sellers — by sending the question to Claude together with a system prompt that holds the restaurant's details. The agent knows the current date and time, so it can tell you whether the restaurant is open right now, and it reads a daily sales dataset to answer "what's most popular?" with real figures. It replies in the language the customer used, so a question asked in Spanish gets a Spanish answer, and it remembers your chat — history is persisted per browser in DynamoDB, so the agent keeps context across follow-ups and even across page reloads, picking up where you left off. The service exposes two interfaces — a web app at the root URL (a browsable menu with category filters, a restaurant-info tab, and a chat panel — a sidebar on desktop, a full-screen modal on mobile — that opens with one-tap starter questions) and an interactive Swagger UI at `/docs`.
 
 ## Try it
 
 Two ways to try it:
 
 - **Chat UI:** open the [chat page](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/) and type a question.
-- **Swagger UI:** open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"messages": [{"role": "user", "content": "..."}]}`.
+- **Swagger UI:** open the [Swagger UI](https://cozedmff7xsjgd6plbpvkunnd40pypti.lambda-url.us-east-2.on.aws/docs), expand `POST /chat`, click **Try it out**, and send a JSON body like `{"user_uuid": "demo-user", "message": "..."}`. (`user_uuid` is any non-empty string identifying the chat history to use.)
 
 Some questions to try:
 
@@ -47,13 +47,14 @@ AWS Lambda Function URL        public endpoint — no API Gateway
 Mangum                         translates the Lambda event into ASGI
         │
         ▼
-FastAPI  ──  POST /chat        request validation and routing
+FastAPI  ──  POST /chat, GET /messages, DELETE /messages
         │
-        ▼
-Anthropic API  ──  Claude Haiku 4.5
+        ├──▶  Anthropic API  ──  Claude Haiku 4.5
+        │
+        └──▶  DynamoDB         per-user chat history (user_uuid, created_at)
 ```
 
-There is no managed database, no authentication, and no API Gateway — the Lambda Function URL is the public endpoint directly. The restaurant's menu and details live in the system prompt, and daily sales figures in a static JSON file (`app/sales_data.json`) bundled with the app. Both are read-only and loaded at startup — there is no external or networked data store.
+There is no authentication and no API Gateway — the Lambda Function URL is the public endpoint directly. Chat history is persisted in a DynamoDB table keyed by a per-browser `user_uuid` (one continuous timeline per user, sorted by `created_at`). The restaurant's menu and details live in the system prompt, and daily sales figures in a static JSON file (`app/sales_data.json`) bundled with the app — both read-only and loaded at startup.
 
 ## Stack
 
@@ -61,6 +62,7 @@ There is no managed database, no authentication, and no API Gateway — the Lamb
 - **FastAPI** — web framework; serves the interactive Swagger UI at `/docs`
 - **Mangum** — ASGI-to-Lambda adapter, so the FastAPI app runs as a Lambda function
 - **Anthropic SDK** — calls Claude Haiku 4.5 (`claude-haiku-4-5-20251001`)
+- **boto3 + DynamoDB** — per-user chat-history persistence (table keyed on `user_uuid` + `created_at`)
 - **AWS Lambda + Function URL** — serverless hosting (arm64, `us-east-2`)
 - **uv** — Python package and environment management
 
@@ -100,7 +102,8 @@ This produces `deployment.zip`, with dependencies built for Linux arm64. Then, i
 restaurant-agent/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py            FastAPI app: POST /chat, request/response models, system prompt
+│   ├── main.py            FastAPI app: /chat + /messages endpoints, models, system prompt
+│   ├── db.py              DynamoDB chat-history operations (save / load / delete)
 │   ├── lambda_handler.py  Mangum adapter — the Lambda entry point
 │   └── sales_data.json    daily unit-sales per menu item, for best-seller answers
 ├── static/
@@ -113,5 +116,5 @@ restaurant-agent/
 ## Notes
 
 - "The Smashery," its menu, and its sales figures are all fictional.
-- Conversation history is multi-turn but client-managed — the backend stays stateless, and refreshing the page starts a new conversation.
+- Chat history is stored server-side in DynamoDB, keyed by a random `user_uuid` kept in the browser's localStorage (no accounts or login). The agent's context is the user's recent history — the last 48 hours or 20 exchanges, whichever is smaller. Reloading the page restores the timeline with a "Resumed" marker; "New Conversation" permanently deletes it after a confirmation prompt.
 - Menu and restaurant details live in the system prompt, and daily sales figures in `app/sales_data.json`; both are bundled into the deployment, so changing them means editing the file and redeploying.

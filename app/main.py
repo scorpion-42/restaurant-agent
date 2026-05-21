@@ -1,22 +1,24 @@
 """Restaurant Q&A agent — FastAPI application.
 
-Exposes a single POST /chat endpoint that answers questions about the
-restaurant by delegating to Claude (Anthropic API).
+Exposes a POST /chat endpoint that answers questions via Claude, with
+DynamoDB-persisted chat history per user (GET /messages, DELETE /messages).
 """
 
 import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 from zoneinfo import ZoneInfo
 
 from anthropic import Anthropic, AnthropicError
+from botocore.exceptions import BotoCoreError, ClientError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
+
+from app import db
 
 # Load .env if present — local dev convenience. In Lambda the env var is
 # supplied by the function configuration, so a missing .env file is fine.
@@ -191,38 +193,32 @@ def root():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-class Message(BaseModel):
-    """A single turn in the conversation."""
+class ChatRequest(BaseModel):
+    """Incoming chat request — a user_uuid and the new message.
 
-    role: Literal["user", "assistant"]
-    content: str
+    History is loaded server-side from DynamoDB keyed by user_uuid (one
+    continuous timeline per user), so the client only sends the new message.
+    user_uuid is an opaque non-empty string; the frontend uses crypto.randomUUID()
+    but manual testers can use any non-empty value. Extra fields (e.g. a stale
+    conversation_id from an older client) are silently ignored by Pydantic.
+    """
 
-    @field_validator("content")
+    user_uuid: str
+    message: str
+
+    @field_validator("user_uuid")
     @classmethod
-    def content_not_blank(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("content must not be empty or whitespace")
+    def user_uuid_not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("must not be empty")
         return v
 
-
-class ChatRequest(BaseModel):
-    """Incoming chat request payload (multi-turn conversation history)."""
-
-    messages: list[Message]
-
-    @field_validator("messages")
+    @field_validator("message")
     @classmethod
-    def validate_messages(cls, msgs: list[Message]) -> list[Message]:
-        if not msgs:
-            raise ValueError("messages must not be empty")
-        if msgs[0].role != "user":
-            raise ValueError("first message must have role 'user'")
-        if msgs[-1].role != "user":
-            raise ValueError("last message must have role 'user' (the question being asked)")
-        for i in range(1, len(msgs)):
-            if msgs[i].role == msgs[i - 1].role:
-                raise ValueError(f"messages must alternate user/assistant; index {i} has same role as previous")
-        return msgs
+    def message_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message must not be empty or whitespace")
+        return v
 
 
 class ChatResponse(BaseModel):
@@ -233,7 +229,12 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    """Answer the latest question via Claude, given the full conversation history."""
+    """Answer the latest user message via Claude, loading and persisting history.
+
+    Recent history for user_uuid (capped to ~48h / 20 pairs) is loaded from
+    DynamoDB, the new user message is appended in memory and sent to Claude, then
+    the user + assistant turn is saved atomically before the response returns.
+    """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -241,13 +242,24 @@ def chat(request: ChatRequest) -> ChatResponse:
             detail="ANTHROPIC_API_KEY is not set.",
         )
 
+    # Load recent cumulative context for this user (empty list for new users).
+    try:
+        history = db.load_recent_messages(request.user_uuid)
+    except (ClientError, BotoCoreError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't load chat history: {exc}",
+        ) from exc
+
+    messages_for_claude = history + [{"role": "user", "content": request.message}]
+
     client = Anthropic(api_key=api_key)
     try:
         message = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT + live_context_section(),
-            messages=[{"role": m.role, "content": m.content} for m in request.messages],
+            messages=messages_for_claude,
         )
     except AnthropicError as exc:
         raise HTTPException(
@@ -258,4 +270,47 @@ def chat(request: ChatRequest) -> ChatResponse:
     answer = "".join(
         block.text for block in message.content if block.type == "text"
     )
+
+    # Persist user + assistant atomically before returning. If the save fails
+    # the user sees an error and the assistant's reply is dropped — acceptable
+    # for this scope; a background-task variant could let the answer reach the
+    # client even when persistence fails.
+    try:
+        db.save_turn(request.user_uuid, request.message, answer)
+    except (ClientError, BotoCoreError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't save message to history: {exc}",
+        ) from exc
+
     return ChatResponse(answer=answer)
+
+
+@app.get("/messages")
+def get_messages(user_uuid: str):
+    """Load a user's full chronological timeline. Used by the frontend on load."""
+    if not user_uuid or not user_uuid.strip():
+        raise HTTPException(status_code=400, detail="user_uuid is required")
+    try:
+        messages = db.load_all_messages(user_uuid)
+    except (ClientError, BotoCoreError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't load messages: {exc}",
+        ) from exc
+    return {"messages": messages}
+
+
+@app.delete("/messages")
+def delete_all_messages(user_uuid: str):
+    """Delete all of a user's messages. Backs the destructive 'New Conversation'."""
+    if not user_uuid or not user_uuid.strip():
+        raise HTTPException(status_code=400, detail="user_uuid is required")
+    try:
+        count = db.delete_all_user_messages(user_uuid)
+    except (ClientError, BotoCoreError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't delete messages: {exc}",
+        ) from exc
+    return {"deleted_count": count}

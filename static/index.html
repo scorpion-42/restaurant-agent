@@ -297,6 +297,28 @@
     border-radius: 4px;
   }
 
+  /* ---- "Resumed" divider below loaded history ---- */
+  .resumed-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+  }
+  .resumed-divider::before,
+  .resumed-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed var(--border);
+  }
+  .resumed-divider span {
+    padding: 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
   /* ---- Empty-state welcome message + suggestion chips ---- */
   #chat-welcome {
     display: none;
@@ -668,11 +690,25 @@
   const newConvo = document.getElementById("new-convo");
   const chatClose = document.getElementById("chat-close");
 
+  // ---- Identity: a stable per-device user_uuid ----
+  // user_uuid persists in localStorage so the same browser maps to the same
+  // server-side history forever. The backend keys all chat history on user_uuid
+  // (one continuous timeline per user), so the client tracks no message state.
+  function getOrCreateUserUuid() {
+    let uuid = localStorage.getItem("smashery_user_uuid");
+    if (!uuid) {
+      uuid = crypto.randomUUID();
+      localStorage.setItem("smashery_user_uuid", uuid);
+    }
+    return uuid;
+  }
+  const userUuid = getOrCreateUserUuid();
+
   // ---- Mobile chat modal ----
   // On mobile the chat is a full-screen modal toggled by the body.chat-open
   // class (see the max-width:900px media query); on desktop the class has no
-  // styling attached, so the sidebar is always shown. conversationHistory is
-  // never touched here — the conversation persists across open/close cycles.
+  // styling attached, so the sidebar is always shown. Opening/closing never
+  // resets the conversation — the rendered messages stay in the DOM.
   function openChat() {
     document.body.classList.add("chat-open");
     chat.scrollTop = chat.scrollHeight;
@@ -685,10 +721,6 @@
     if (e.key === "Escape") closeChat();
   });
 
-  // Source of truth for the conversation. The full history is sent on every
-  // request (the backend is stateless); cleared by "New conversation".
-  let conversationHistory = [];
-
   function addMessage(text, className) {
     const el = document.createElement("div");
     el.className = "msg " + className;
@@ -698,11 +730,24 @@
     return el;
   }
 
+  function appendHistoricalMessage(role, content) {
+    // Like addMessage, but handles the assistant-markdown path inline so we
+    // don't need a two-step "create then patch" pattern for each loaded message.
+    const el = document.createElement("div");
+    el.className = "msg " + role;
+    if (role === "assistant") {
+      el.innerHTML = DOMPurify.sanitize(marked.parse(content));
+    } else {
+      el.textContent = content;
+    }
+    chat.appendChild(el);
+    return el;
+  }
+
   // ---- Empty-state welcome + suggestion chips ----
   // The welcome bubble and chips show only while the conversation is empty.
-  // The welcome text is UI-only — it never enters conversationHistory, so the
-  // model is never shown as having "said" it. Visibility is the chat-empty
-  // class on #chat, derived purely from conversationHistory.length.
+  // The welcome text is UI-only and never sent to the model. Empty state is
+  // derived from the DOM — whether any message bubble has been rendered.
   const SUGGESTIONS = [
     "What's vegan?",
     "What's most popular?",
@@ -723,7 +768,10 @@
   function updateEmptyState() {
     // chat-empty lives on the .chat panel so it can control both the welcome
     // bubble (inside #chat) and the suggestions bar (a sibling of #chat).
-    chatPanel.classList.toggle("chat-empty", conversationHistory.length === 0);
+    // "Empty" = no message bubble rendered yet; the welcome lives in its own
+    // wrapper, so :scope > .msg matches only real messages.
+    const hasMessages = chat.querySelector(":scope > .msg") !== null;
+    chatPanel.classList.toggle("chat-empty", !hasMessages);
   }
 
   async function sendQuestion(question) {
@@ -731,30 +779,30 @@
     // Ignore blank input and taps that land while a request is in flight.
     if (!question || send.disabled) return;
 
-    conversationHistory.push({ role: "user", content: question });
-    updateEmptyState();
     addMessage(question, "user");
+    updateEmptyState();
     input.value = "";
     send.disabled = true;
     const pending = addMessage("thinking...", "assistant pending");
 
     try {
+      // The backend loads history from DynamoDB keyed by user_uuid, so we send
+      // only the new message — not the whole conversation — and receive {answer}.
       const res = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: conversationHistory }),
+        body: JSON.stringify({
+          user_uuid: userUuid,
+          message: question,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
-      conversationHistory.push({ role: "assistant", content: data.answer });
       // Agent responses are markdown — render them, sanitized. User messages
       // and errors stay as textContent so user text is never parsed as markup.
       pending.innerHTML = DOMPurify.sanitize(marked.parse(data.answer));
       pending.className = "msg assistant";
     } catch (err) {
-      // Drop the failed user turn — history holds only completed exchanges.
-      conversationHistory.pop();
-      updateEmptyState();
       pending.textContent = "Error: " + err.message;
       pending.className = "msg error";
     } finally {
@@ -768,14 +816,85 @@
     sendQuestion(input.value);
   });
 
-  // "New conversation" — reset history and remove rendered messages, keeping
-  // the static welcome/chips element so the empty state can show again.
-  newConvo.addEventListener("click", function () {
-    conversationHistory = [];
-    chat.querySelectorAll(":scope > .msg").forEach(m => m.remove());
+  async function startNewConversation() {
+    const confirmed = confirm(
+      "Start a new conversation? This will permanently delete all your previous messages."
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(
+        "/messages?user_uuid=" + encodeURIComponent(userUuid),
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+
+      // Wipe the rendered timeline: all message bubbles + the Resumed divider.
+      const messageNodes = chat.querySelectorAll(":scope > .msg");
+      for (const node of messageNodes) {
+        node.remove();
+      }
+      const divider = chat.querySelector(".resumed-divider");
+      if (divider) divider.remove();
+
+      // Welcome + chips reappear once the DOM is empty.
+      updateEmptyState();
+    } catch (err) {
+      console.error("Failed to start new conversation:", err);
+      alert("Failed to start a new conversation. Please try again.");
+    }
+  }
+
+  newConvo.addEventListener("click", startNewConversation);
+
+  // Load the user's full server-side history on page load and render it. If any
+  // messages render, drop a "Resumed" divider below them so the user can see
+  // where the restored history ends and the live session begins.
+  async function loadHistoryAndRender() {
+    try {
+      const res = await fetch("/messages?user_uuid=" + encodeURIComponent(userUuid));
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+      const data = await res.json();
+      const messages = data.messages || [];
+
+      for (const msg of messages) {
+        appendHistoricalMessage(msg.role, msg.content);
+      }
+
+      if (messages.length > 0) {
+        appendResumedDivider();
+      }
+
+      chat.scrollTop = chat.scrollHeight;
+    } catch (err) {
+      console.error("Failed to load history:", err);
+      // Soft fail — the user can still chat, just without history visible.
+    }
+  }
+
+  function appendResumedDivider() {
+    // Idempotent: remove any existing divider before appending.
+    const existing = chat.querySelector(".resumed-divider");
+    if (existing) existing.remove();
+
+    const divider = document.createElement("div");
+    divider.className = "resumed-divider";
+    const label = document.createElement("span");
+    label.textContent = "Resumed";
+    divider.appendChild(label);
+    chat.appendChild(divider);
+  }
+
+  // Page load: clean up the leftover B3 localStorage key, load + render history,
+  // then settle the empty state (so welcome+chips hide when history exists).
+  document.addEventListener("DOMContentLoaded", async () => {
+    localStorage.removeItem("smashery_active_conversation");
+    await loadHistoryAndRender();
     updateEmptyState();
-    input.value = "";
-    input.focus();
   });
 </script>
 </body>
